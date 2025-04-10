@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catatan Pengeluaran</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .week {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        .week h3 {
+            margin: 0 0 10px;
+        }
+        .balance {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .day {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Catatan Pengeluaran </h2>
+        <div id="weeks"></div>
+    </div>
+    
+    <script>
+        // Fungsi untuk format angka ke Rupiah
+        function formatRupiah(amount) {
+            return "Rp" + amount.toLocaleString("id-ID");
+        }
+
+        // Fungsi untuk membersihkan angka dari format Rupiah (misal "Rp10.000" jadi "10000")
+        function cleanRupiah(value) {
+            return parseInt(value.replace(/[^\d]/g, "")) || 0;
+        }
+
+        function saveData() {
+            let data = {};
+            let balances = {};
+
+            document.querySelectorAll(".week").forEach((week, i) => {
+                data[i] = [];
+                let totalSpent = 0;
+                week.querySelectorAll(".day").forEach((day, j) => {
+                    let input = day.querySelector("input");
+                    let spent = cleanRupiah(input.value); // Ambil angka asli tanpa "Rp"
+                    data[i][j] = spent;
+                    totalSpent += spent;
+                });
+
+                let remainingBudget = 150000 - totalSpent;
+                balances[i] = remainingBudget;
+                week.querySelector(".balance").textContent = `Sisa Anggaran: ${formatRupiah(remainingBudget)}`;
+            });
+
+            localStorage.setItem("pengeluaranData", JSON.stringify(data));
+            localStorage.setItem("balanceData", JSON.stringify(balances));
+        }
+
+        function loadData() {
+            return JSON.parse(localStorage.getItem("pengeluaranData")) || {};
+        }
+
+        function loadBalances() {
+            return JSON.parse(localStorage.getItem("balanceData")) || {};
+        }
+
+        function handleInputFormat(event) {
+            let input = event.target;
+            let rawValue = cleanRupiah(input.value); // Hapus format Rupiah
+            input.value = rawValue ? formatRupiah(rawValue) : ""; // Format kembali sebagai Rupiah
+            saveData();
+        }
+
+        function generateWeeks(startDate, weeksCount, weeklyBudget) {
+            let weeksContainer = document.getElementById("weeks");
+            let currentDate = new Date(startDate);
+            let savedData = loadData();
+            let savedBalances = loadBalances();
+
+            for (let i = 0; i < weeksCount; i++) {
+                let weekDiv = document.createElement("div");
+                weekDiv.classList.add("week");
+
+                let weekTitle = document.createElement("h3");
+                let endDate = new Date(currentDate);
+                endDate.setDate(endDate.getDate() + 6);
+                weekTitle.textContent = `Minggu ${i + 1} (${currentDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`;
+
+                let balanceDiv = document.createElement("div");
+                balanceDiv.classList.add("balance");
+                let initialBalance = savedBalances[i] !== undefined ? savedBalances[i] : weeklyBudget;
+                balanceDiv.textContent = `Sisa Anggaran: ${formatRupiah(initialBalance)}`;
+
+                weekDiv.appendChild(weekTitle);
+                weekDiv.appendChild(balanceDiv);
+
+                let totalSpent = 0;
+
+                for (let j = 0; j < 7; j++) {
+                    let dayDiv = document.createElement("div");
+                    dayDiv.classList.add("day");
+
+                    let dateLabel = document.createElement("span");
+                    dateLabel.textContent = currentDate.toLocaleDateString();
+
+                    let inputField = document.createElement("input");
+                    inputField.type = "text"; // Ubah jadi text agar bisa memformat Rupiah
+                    inputField.placeholder = "Pengeluaran";
+                    let savedValue = savedData[i]?.[j] || "";
+                    inputField.value = savedValue ? formatRupiah(savedValue) : ""; // Tampilkan format Rupiah
+                    inputField.addEventListener("input", handleInputFormat);
+                    inputField.addEventListener("blur", handleInputFormat); // Format ulang saat kehilangan fokus
+
+                    if (savedData[i]?.[j]) {
+                        totalSpent += parseInt(savedData[i][j]) || 0;
+                    }
+
+                    dayDiv.appendChild(dateLabel);
+                    dayDiv.appendChild(inputField);
+                    weekDiv.appendChild(dayDiv);
+
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+
+                balanceDiv.textContent = `Sisa Anggaran: ${formatRupiah(weeklyBudget - totalSpent)}`;
+                weeksContainer.appendChild(weekDiv);
+            }
+        }
+
+        generateWeeks("2025-04-10", 8, 150000);
+    </script>
+</body>
+</html>
